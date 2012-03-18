@@ -1,0 +1,15 @@
+Usage: s3sync.py [options]
+
+Options:
+  -h, --help            show this help message and exit
+  -s SOURCE, --source=SOURCE
+                        source file or directory to sync
+  -b BUCKET, --bucket=BUCKET
+                        destination bucket in s3
+  -k AWSKEY, --awskey=AWSKEY
+                        aws key
+  -a AWSSECRET, --awssecret=AWSSECRET
+                        aws secret
+
+EXAMPLE:
+./s3sync.py -s /var/tmp/test -b test_bucket -k <AWS_KEY> -a <AWS_SECRET>

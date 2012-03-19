@@ -28,33 +28,20 @@ def parse_options():
     return options.source, options.bucket, options.awskey, options.awssecret
 
 class S3Bucket():
-    def __init__(self, aws_key, aws_secret, site_location):
+    def __init__(self, aws_key, aws_secret, site_location, bucket):
         self.aws_key = aws_key
         self.aws_secret = aws_secret
         self.site_location = site_location
-
-    def create_connection(self):
         self.conn = S3Connection(self.aws_key, 
                                  self.aws_secret)
-
-    def create_bucket(self, name):
         try:
-            bucket_id = self.conn.create_bucket(name, 
+            self.bucket_id = self.conn.create_bucket(bucket, 
                                                 location=self.site_location)
         except boto.exception.S3CreateError:
-            raise
-        except boto.exception.S3ResponseError:
-            raise
+            self.bucket_id = self.conn.get_bucket(bucket)
 
-        return bucket_id
-
-    def get_bucket(self, bucket):
-        bucket_id = self.conn.get_bucket(bucket)
-        
-        return bucket_id
-
-    def sync_dir(self, directory, bucket_id):
-        k = Key(bucket_id)
+    def sync_dir(self, directory):
+        k = Key(self.bucket_id)
         tree = self._get_tree(directory)
         for fname in tree:
            k.key = fname
@@ -74,15 +61,7 @@ if __name__ == '__main__':
  
     site_location = Location.USWest
 
-    s3_bucket = S3Bucket(aws_key, aws_secret, site_location)
+    s3_bucket = S3Bucket(aws_key, aws_secret, site_location, bucket)
 
-    s3_bucket.create_connection()
-    try:
-        bucket_id = s3_bucket.create_bucket(bucket)
-    except boto.exception.S3CreateError:
-        bucket_id = s3_bucket.get_bucket(bucket)
-    except boto.exception.S3ResponseError:
-        print "invalid region specified"
-    
-    s3_bucket.sync_dir(source_dir, bucket_id)
+    s3_bucket.sync_dir(source_dir)
     

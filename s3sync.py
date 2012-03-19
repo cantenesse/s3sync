@@ -1,6 +1,7 @@
 #!/usr/bin/env python2.6
 import os
 import boto
+import multiprocessing
 from boto.s3.connection import S3Connection
 from boto.s3.connection import Location
 from boto.s3.connection import Key
@@ -21,14 +22,14 @@ def parse_options():
                       action="store", type="string",
                       help="aws secret")
    
-   
-   
     (options, args) = parser.parse_args()
     
     return options.source, options.bucket, options.awskey, options.awssecret
 
-class S3Bucket():
+class S3Bucket(multiprocessing.Process):
     def __init__(self, aws_key, aws_secret, site_location, bucket):
+        multiprocessing.Process.__init__(self)
+
         self.aws_key = aws_key
         self.aws_secret = aws_secret
         self.site_location = site_location
@@ -39,13 +40,13 @@ class S3Bucket():
                                                 location=self.site_location)
         except boto.exception.S3CreateError:
             self.bucket_id = self.conn.get_bucket(bucket)
-
+ 
     def sync_dir(self, directory):
-        k = Key(self.bucket_id)
+        self.work_queue = multiprocessing.Queue()
+
         tree = self._get_tree(directory)
         for fname in tree:
-           k.key = fname
-           k.set_contents_from_filename(fname)
+           self.work_queue.put(fname)
 
     def _get_tree(self, directory):
         tree = []
@@ -55,13 +56,25 @@ class S3Bucket():
                
         return tree
 
+    def run(self):
+        self.kill_received = False
+        k = Key(self.bucket_id)
+
+        while not self.kill_received:
+            try:
+                job = self.work_queue.get_nowait()
+            except:
+                break
+            k.key = job
+            k.set_contents_from_filename(job)
 
 if __name__ == '__main__':
     source_dir, bucket, aws_key, aws_secret = parse_options()
- 
+    
+    nprocess = 4
     site_location = Location.USWest
-
-    s3_bucket = S3Bucket(aws_key, aws_secret, site_location, bucket)
-
-    s3_bucket.sync_dir(source_dir)
+   
+    for i in range(nprocess): 
+        s3_bucket = S3Bucket(aws_key, aws_secret, site_location, bucket)
+        s3_bucket.sync_dir(source_dir)
     
